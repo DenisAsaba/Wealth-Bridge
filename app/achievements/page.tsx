@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaTrophy, FaMedal, FaCrown, FaLeaf, FaFire, FaStar, FaChartLine } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
+import { getUserStats, getLeaderboard } from '@/lib/gamificationService';
 
 interface Achievement {
   id: number;
@@ -23,9 +25,12 @@ interface LeaderboardUser {
 }
 
 export default function AchievementsPage() {
+  const { user } = useAuth();
   const [userPoints, setUserPoints] = useState(450);
   const [userLevel, setUserLevel] = useState(5);
   const [treeGrowth, setTreeGrowth] = useState(65); // Percentage of tree growth
+  const [loading, setLoading] = useState(true);
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardUser[]>([]);
 
   const achievements: Achievement[] = [
     {
@@ -102,7 +107,47 @@ export default function AchievementsPage() {
     },
   ];
 
-  const leaderboard: LeaderboardUser[] = [
+  // Load user stats and leaderboard from Firebase
+  useEffect(() => {
+    const loadData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Load user stats
+        const statsResult = await getUserStats(user.uid);
+        if (statsResult.success && statsResult.data) {
+          setUserPoints(statsResult.data.points || 0);
+          setUserLevel(statsResult.data.level || 1);
+          setTreeGrowth(statsResult.data.treeGrowth || 0);
+        }
+
+        // Load leaderboard
+        const leaderboardResult = await getLeaderboard(10);
+        if (leaderboardResult.success && leaderboardResult.data) {
+          const formattedLeaderboard: LeaderboardUser[] = leaderboardResult.data.map((entry, index) => ({
+            rank: entry.rank,
+            name: entry.name,
+            points: entry.points,
+            avatar: index < 3 ? ['🥇', '🥈', '🥉'][index] : '👤',
+            achievements: entry.achievements
+          }));
+          setLeaderboardData(formattedLeaderboard);
+        }
+      } catch (error) {
+        console.error('Error loading achievements data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  const leaderboard: LeaderboardUser[] = leaderboardData.length > 0 ? leaderboardData : [
     { rank: 1, name: 'Alex Rivera', points: 1850, avatar: '🥇', achievements: 12 },
     { rank: 2, name: 'Jordan Kim', points: 1620, avatar: '🥈', achievements: 11 },
     { rank: 3, name: 'Taylor Brooks', points: 1450, avatar: '🥉', achievements: 10 },
@@ -139,6 +184,36 @@ export default function AchievementsPage() {
           </p>
         </motion.div>
 
+        {/* Show login message if not authenticated */}
+        {!user && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md mx-auto mb-8 frosted-glass rounded-xl p-6 text-center"
+          >
+            <FaTrophy className="text-6xl text-amber mx-auto mb-4" />
+            <p className="text-darkwood mb-4">
+              Please log in to track your achievements and see the leaderboard!
+            </p>
+            <a
+              href="/login"
+              className="inline-block bg-primary hover:bg-amber text-white font-bold py-2 px-6 rounded-lg transition-all"
+            >
+              Log In
+            </a>
+          </motion.div>
+        )}
+
+        {/* Loading State */}
+        {loading && user && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-darkwood">Loading your achievements...</p>
+          </div>
+        )}
+
+        {!loading && user && (
+        <>
         {/* User Stats */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
           <motion.div
@@ -359,6 +434,8 @@ export default function AchievementsPage() {
             </motion.div>
           </div>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

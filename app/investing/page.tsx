@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaLeaf, FaChartLine, FaArrowUp, FaArrowDown, FaCoins, FaTrophy } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
+import { getPortfolio, buyStock, sellStock, initializePortfolio } from '@/lib/portfolioService';
+import { addPoints } from '@/lib/gamificationService';
 
 interface Stock {
   id: string;
@@ -21,10 +24,12 @@ interface Portfolio {
 }
 
 export default function InvestingPage() {
+  const { user } = useAuth();
   const [balance, setBalance] = useState(10000); // Virtual currency (leaf tokens)
   const [portfolio, setPortfolio] = useState<Portfolio>({});
   const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
   const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(true);
 
   const stocks: Stock[] = [
     { id: '1', name: 'Tech Growth Fund', symbol: 'TGF', price: 125.50, change: 3.25, changePercent: 2.66 },
@@ -34,6 +39,46 @@ export default function InvestingPage() {
     { id: '5', name: 'S&P 500 Index', symbol: 'SPX', price: 450.00, change: 8.50, changePercent: 1.93 },
     { id: '6', name: 'Dividend Leaders', symbol: 'DIV', price: 92.40, change: -0.60, changePercent: -0.65 },
   ];
+
+  // Load portfolio from Firebase
+  useEffect(() => {
+    const loadPortfolio = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const result = await getPortfolio(user.uid);
+        
+        if (result.success && result.data) {
+          setBalance(result.data.balance);
+          
+          // Convert holdings Record to portfolio object
+          const portfolioObj: Portfolio = {};
+          Object.entries(result.data.holdings).forEach(([symbol, holding]) => {
+            portfolioObj[symbol] = {
+              shares: holding.shares,
+              avgPrice: holding.avgPrice
+            };
+          });
+          setPortfolio(portfolioObj);
+        } else {
+          // Initialize new portfolio for new users
+          await initializePortfolio(user.uid, 10000);
+          setBalance(10000);
+          setPortfolio({});
+        }
+      } catch (error) {
+        console.error('Error loading portfolio:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPortfolio();
+  }, [user]);
 
   const calculatePortfolioValue = () => {
     let total = 0;
@@ -62,48 +107,94 @@ export default function InvestingPage() {
   const totalValue = balance + calculatePortfolioValue();
   const gainLoss = calculatePortfolioGainLoss();
 
-  const handleBuy = (stock: Stock) => {
+  const handleBuy = async (stock: Stock) => {
+    if (!user) return;
+    
     const totalCost = stock.price * quantity;
     if (totalCost <= balance) {
-      setBalance(balance - totalCost);
-      setPortfolio((prev) => {
-        const existing = prev[stock.symbol];
-        if (existing) {
-          const totalShares = existing.shares + quantity;
-          const avgPrice = (existing.avgPrice * existing.shares + stock.price * quantity) / totalShares;
-          return {
-            ...prev,
-            [stock.symbol]: { shares: totalShares, avgPrice },
-          };
-        }
-        return {
-          ...prev,
-          [stock.symbol]: { shares: quantity, avgPrice: stock.price },
-        };
+      // Convert portfolio to holdings format
+      const holdings: Record<string, { symbol: string; shares: number; avgPrice: number }> = {};
+      Object.entries(portfolio).forEach(([symbol, data]) => {
+        holdings[symbol] = { symbol, ...data };
       });
-      setSelectedStock(null);
-      setQuantity(1);
+      
+      // Save to Firebase first
+      try {
+        const result = await buyStock(user.uid, stock.symbol, quantity, stock.price, balance, holdings);
+        
+        if (result.success) {
+          // Update UI after successful save
+          const newBalance = balance - totalCost;
+          setBalance(newBalance);
+          
+          setPortfolio((prev) => {
+            const existing = prev[stock.symbol];
+            if (existing) {
+              const totalShares = existing.shares + quantity;
+              const avgPrice = (existing.avgPrice * existing.shares + stock.price * quantity) / totalShares;
+              return {
+                ...prev,
+                [stock.symbol]: { shares: totalShares, avgPrice },
+              };
+            }
+            return {
+              ...prev,
+              [stock.symbol]: { shares: quantity, avgPrice: stock.price },
+            };
+          });
+          
+          // Award points for investing
+          await addPoints(user.uid, Math.floor(quantity * 10));
+          
+          setSelectedStock(null);
+          setQuantity(1);
+        }
+      } catch (error) {
+        console.error('Error buying stock:', error);
+      }
     }
   };
 
-  const handleSell = (stock: Stock) => {
+  const handleSell = async (stock: Stock) => {
+    if (!user) return;
+    
     const holding = portfolio[stock.symbol];
     if (holding && holding.shares >= quantity) {
-      const saleValue = stock.price * quantity;
-      setBalance(balance + saleValue);
-      setPortfolio((prev) => {
-        const newShares = holding.shares - quantity;
-        if (newShares === 0) {
-          const { [stock.symbol]: _, ...rest } = prev;
-          return rest;
-        }
-        return {
-          ...prev,
-          [stock.symbol]: { ...holding, shares: newShares },
-        };
+      // Convert portfolio to holdings format
+      const holdings: Record<string, { symbol: string; shares: number; avgPrice: number }> = {};
+      Object.entries(portfolio).forEach(([symbol, data]) => {
+        holdings[symbol] = { symbol, ...data };
       });
-      setSelectedStock(null);
-      setQuantity(1);
+      
+      try {
+        const result = await sellStock(user.uid, stock.symbol, quantity, stock.price, balance, holdings);
+        
+        if (result.success) {
+          // Update UI after successful save
+          const saleValue = stock.price * quantity;
+          setBalance(balance + saleValue);
+          
+          setPortfolio((prev) => {
+            const newShares = holding.shares - quantity;
+            if (newShares === 0) {
+              const { [stock.symbol]: _, ...rest } = prev;
+              return rest;
+            }
+            return {
+              ...prev,
+              [stock.symbol]: { ...holding, shares: newShares },
+            };
+          });
+          
+          // Award points for selling
+          await addPoints(user.uid, Math.floor(quantity * 5));
+          
+          setSelectedStock(null);
+          setQuantity(1);
+        }
+      } catch (error) {
+        console.error('Error selling stock:', error);
+      }
     }
   };
 
@@ -124,7 +215,36 @@ export default function InvestingPage() {
           </p>
         </motion.div>
 
+        {/* Show login message if not authenticated */}
+        {!user && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md mx-auto mb-8 frosted-glass rounded-xl p-6 text-center"
+          >
+            <p className="text-darkwood mb-4">
+              Please log in to start investing and track your portfolio!
+            </p>
+            <a
+              href="/login"
+              className="inline-block bg-primary hover:bg-amber text-white font-bold py-2 px-6 rounded-lg transition-all"
+            >
+              Log In
+            </a>
+          </motion.div>
+        )}
+
+        {/* Loading State */}
+        {loading && user && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-darkwood">Loading your portfolio...</p>
+          </div>
+        )}
+
         {/* Portfolio Summary */}
+        {!loading && (
+        <>
         <div className="grid md:grid-cols-4 gap-6 mb-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -288,6 +408,8 @@ export default function InvestingPage() {
             </motion.div>
           </div>
         </div>
+        </>
+        )}
 
         {/* Trading Modal */}
         {selectedStock && (

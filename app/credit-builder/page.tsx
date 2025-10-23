@@ -1,12 +1,17 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaCreditCard, FaArrowUp, FaArrowDown, FaCheckCircle, FaExclamationTriangle, FaLightbulb } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
+import { getCreditScore, updateCreditScore, completeTask } from '@/lib/creditService';
+import { addPoints } from '@/lib/gamificationService';
 
 export default function CreditBuilderPage() {
+  const { user } = useAuth();
   const [creditScore, setCreditScore] = useState(680);
-  const previousScore = 650;
+  const [previousScore, setPreviousScore] = useState(650);
+  const [loading, setLoading] = useState(true);
   const scoreChange = creditScore - previousScore;
 
   const creditFactors = [
@@ -17,12 +22,65 @@ export default function CreditBuilderPage() {
     { name: 'New Credit', percentage: 80, status: 'good', impact: 10 },
   ];
 
-  const tasks = [
+  const [tasks, setTasks] = useState([
     { id: 1, title: 'Pay off credit card balance', completed: true, points: 50 },
     { id: 2, title: 'Dispute error on credit report', completed: false, points: 75 },
     { id: 3, title: 'Set up autopay for loans', completed: false, points: 30 },
     { id: 4, title: 'Reduce credit utilization below 30%', completed: false, points: 100 },
-  ];
+  ]);
+
+  // Load credit score from Firebase
+  useEffect(() => {
+    const loadCreditData = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const result = await getCreditScore(user.uid);
+        if (result.success && result.data) {
+          setCreditScore(result.data.currentScore);
+          setPreviousScore(result.data.previousScore);
+
+          // Update tasks with completed status
+          if (result.data.tasks) {
+            setTasks(prev => prev.map(task => {
+              const savedTask = result.data?.tasks.find(t => t.id === task.id);
+              return savedTask ? { ...task, completed: savedTask.completed } : task;
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading credit data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCreditData();
+  }, [user]);
+
+  const handleTaskComplete = async (taskId: number, taskPoints: number) => {
+    if (!user) return;
+
+    // Update UI optimistically
+    setTasks(prev => prev.map(task => 
+      task.id === taskId ? { ...task, completed: true } : task
+    ));
+
+    try {
+      await completeTask(user.uid, taskId);
+      await addPoints(user.uid, taskPoints);
+    } catch (error) {
+      console.error('Error completing task:', error);
+      // Revert on error
+      setTasks(prev => prev.map(task => 
+        task.id === taskId ? { ...task, completed: false } : task
+      ));
+    }
+  };
 
   const tips = [
     {
@@ -70,6 +128,37 @@ export default function CreditBuilderPage() {
             Track your credit journey and build a stronger financial future
           </p>
         </motion.div>
+
+        {/* Show login message if not authenticated */}
+        {!user && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md mx-auto mb-8 frosted-glass rounded-xl p-6 text-center"
+          >
+            <p className="text-darkwood mb-4">
+              Please log in to track your credit score and progress!
+            </p>
+            <a
+              href="/login"
+              className="inline-block bg-primary hover:bg-amber text-white font-bold py-2 px-6 rounded-lg transition-all"
+            >
+              Log In
+            </a>
+          </motion.div>
+        )}
+
+        {/* Loading State */}
+        {loading && user && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-darkwood">Loading your credit data...</p>
+          </div>
+        )}
+
+        {/* Content */}
+        {!loading && (
+          <>
 
         {/* Credit Score Card */}
         <motion.div
@@ -172,6 +261,7 @@ export default function CreditBuilderPage() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
+                  onClick={() => !task.completed && user && handleTaskComplete(task.id, task.points)}
                   className={`p-4 rounded-lg border-2 transition-all ${
                     task.completed
                       ? 'bg-green-50 border-green-300'
@@ -228,6 +318,8 @@ export default function CreditBuilderPage() {
             })}
           </div>
         </motion.div>
+        </>
+        )}
       </div>
     </div>
   );

@@ -56,10 +56,10 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <>
-                <div className="flex items-center space-x-2 text-accent">
+                <Link href="/profile" className="flex items-center space-x-2 text-accent hover:text-white transition-all">
                   <FaUserCircle className="text-2xl" />
-                  <span className="text-sm">{user.displayName}</span>
-                </div>
+                  <span className="text-sm">{user.displayName || 'Profile'}</span>
+                </Link>
                 <button
                   onClick={() => logout()}
                   className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-all"

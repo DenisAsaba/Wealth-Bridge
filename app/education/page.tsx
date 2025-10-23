@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaCreditCard, FaChartLine, FaCheckCircle, FaTrophy, FaLock } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
+import { saveEducationProgress, getEducationProgress, saveQuizScore } from '@/lib/educationService';
+import { addPoints } from '@/lib/gamificationService';
 
 interface Module {
   id: string;
@@ -21,7 +24,9 @@ interface Lesson {
 }
 
 export default function EducationPage() {
+  const { user } = useAuth();
   const [selectedModule, setSelectedModule] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [modules, setModules] = useState<Module[]>([
     {
       id: 'credit',
@@ -58,12 +63,69 @@ export default function EducationPage() {
   const [showQuiz, setShowQuiz] = useState(false);
   const [quizScore, setQuizScore] = useState<number | null>(null);
 
+  // Load user's progress from Firebase
+  useEffect(() => {
+    const loadProgress = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        // Load progress for credit module
+        const creditProgress = await getEducationProgress(user.uid, 'credit');
+        // Load progress for investing module
+        const investingProgress = await getEducationProgress(user.uid, 'investing');
+
+        if (creditProgress.success && creditProgress.data) {
+          setModules((prev) =>
+            prev.map((module) => {
+              if (module.id === 'credit') {
+                const updatedLessons = module.lessons.map((lesson) => ({
+                  ...lesson,
+                  completed: creditProgress.data?.completedLessons?.includes(lesson.id.toString()) || false,
+                }));
+                return { ...module, lessons: updatedLessons };
+              }
+              return module;
+            })
+          );
+        }
+
+        if (investingProgress.success && investingProgress.data) {
+          setModules((prev) =>
+            prev.map((module) => {
+              if (module.id === 'investing') {
+                const updatedLessons = module.lessons.map((lesson) => ({
+                  ...lesson,
+                  completed: investingProgress.data?.completedLessons?.includes(lesson.id.toString()) || false,
+                }));
+                return { ...module, lessons: updatedLessons };
+              }
+              return module;
+            })
+          );
+        }
+      } catch (error) {
+        console.error('Error loading progress:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProgress();
+  }, [user]);
+
   const calculateProgress = (lessons: Lesson[]) => {
     const completed = lessons.filter((l) => l.completed).length;
     return (completed / lessons.length) * 100;
   };
 
-  const handleLessonComplete = (moduleId: string, lessonId: number) => {
+  const handleLessonComplete = async (moduleId: string, lessonId: number) => {
+    if (!user) return;
+
+    // Update UI optimistically
     setModules((prev) =>
       prev.map((module) => {
         if (module.id === moduleId) {
@@ -78,11 +140,44 @@ export default function EducationPage() {
         return module;
       })
     );
+
+    // Save to Firebase
+    try {
+      // Get current module to save all lessons
+      const currentModule = modules.find(m => m.id === moduleId);
+      if (currentModule) {
+        const lessonsData = currentModule.lessons.map(lesson => ({
+          id: lesson.id,
+          title: lesson.title,
+          completed: lesson.id === lessonId ? true : lesson.completed,
+          completedAt: lesson.id === lessonId ? new Date() : undefined
+        }));
+        
+        await saveEducationProgress(user.uid, moduleId, currentModule.title, lessonsData);
+        // Award points for completing a lesson
+        await addPoints(user.uid, 50);
+      }
+    } catch (error) {
+      console.error('Error saving progress:', error);
+    }
   };
 
-  const handleQuizComplete = () => {
+  const handleQuizComplete = async () => {
     const score = Math.floor(Math.random() * 30) + 70; // Random score between 70-100
     setQuizScore(score);
+    
+    // Save quiz score to Firebase
+    if (user && selectedModule) {
+      try {
+        await saveQuizScore(user.uid, selectedModule, score);
+        // Award points based on score
+        const pointsEarned = Math.floor(score / 10) * 10; // 70-100 points
+        await addPoints(user.uid, pointsEarned);
+      } catch (error) {
+        console.error('Error saving quiz score:', error);
+      }
+    }
+    
     setTimeout(() => {
       setShowQuiz(false);
       setQuizScore(null);
@@ -106,8 +201,36 @@ export default function EducationPage() {
           </p>
         </motion.div>
 
+        {/* Show login message if not authenticated */}
+        {!user && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="max-w-md mx-auto mb-8 frosted-glass rounded-xl p-6 text-center"
+          >
+            <p className="text-darkwood mb-4">
+              Please log in to track your progress and earn points!
+            </p>
+            <a
+              href="/login"
+              className="inline-block bg-primary hover:bg-amber text-white font-bold py-2 px-6 rounded-lg transition-all"
+            >
+              Log In
+            </a>
+          </motion.div>
+        )}
+
+        {/* Loading State */}
+        {loading && user && (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent"></div>
+            <p className="mt-4 text-darkwood">Loading your progress...</p>
+          </div>
+        )}
+
         {/* Modules Grid */}
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
+        {!loading && (
+          <div className="grid md:grid-cols-2 gap-8 mb-12">
           {modules.map((module, index) => {
             const Icon = module.icon;
             const progress = calculateProgress(module.lessons);
@@ -187,6 +310,7 @@ export default function EducationPage() {
             );
           })}
         </div>
+        )}
 
         {/* Quiz Modal */}
         {showQuiz && (

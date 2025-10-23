@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FaUsers, FaStar, FaCalendarAlt, FaFilter, FaLinkedin, FaEnvelope } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
+import { bookSession, getUserSessions } from '@/lib/mentorshipService';
+import { addPoints } from '@/lib/gamificationService';
 
 interface Mentor {
   id: number;
@@ -17,10 +20,76 @@ interface Mentor {
 }
 
 export default function MentorshipPage() {
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedMentor, setSelectedMentor] = useState<Mentor | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [bookingDate, setBookingDate] = useState('');
+  const [bookingTime, setBookingTime] = useState('');
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [userSessions, setUserSessions] = useState<any[]>([]);
 
   const categories = ['all', 'Credit Building', 'Investing', 'Budgeting', 'Real Estate', 'Entrepreneurship'];
+
+  // Load user's booked sessions
+  useEffect(() => {
+    const loadSessions = async () => {
+      if (!user) return;
+      
+      try {
+        const result = await getUserSessions(user.uid);
+        if (result.success && result.data) {
+          setUserSessions(result.data);
+        }
+      } catch (error) {
+        console.error('Error loading sessions:', error);
+      }
+    };
+
+    loadSessions();
+  }, [user]);
+
+  const handleBookSession = async () => {
+    if (!user || !selectedMentor || !bookingDate || !bookingTime) {
+      alert('Please fill in all booking details');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const result = await bookSession(
+        user.uid,
+        selectedMentor.id.toString(),
+        selectedMentor.name,
+        bookingDate,
+        bookingTime
+      );
+
+      if (result.success) {
+        // Award points for booking
+        await addPoints(user.uid, 100);
+        
+        alert('Session booked successfully! 🎉');
+        setShowBookingModal(false);
+        setSelectedMentor(null);
+        setBookingDate('');
+        setBookingTime('');
+        
+        // Reload sessions
+        const sessionsResult = await getUserSessions(user.uid);
+        if (sessionsResult.success && sessionsResult.data) {
+          setUserSessions(sessionsResult.data);
+        }
+      } else {
+        alert('Failed to book session. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error booking session:', error);
+      alert('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const mentors: Mentor[] = [
     {
@@ -280,10 +349,71 @@ export default function MentorshipPage() {
 
               {/* Contact Options */}
               <div className="space-y-3">
-                <button className="w-full bg-primary hover:bg-amber text-white font-bold py-4 px-6 rounded-lg transition-all flex items-center justify-center space-x-3">
-                  <FaCalendarAlt />
-                  <span>Schedule 1-on-1 Session</span>
-                </button>
+                {user ? (
+                  <>
+                    {!showBookingModal ? (
+                      <button 
+                        onClick={() => setShowBookingModal(true)}
+                        className="w-full bg-primary hover:bg-amber text-white font-bold py-4 px-6 rounded-lg transition-all flex items-center justify-center space-x-3"
+                      >
+                        <FaCalendarAlt />
+                        <span>Schedule 1-on-1 Session</span>
+                      </button>
+                    ) : (
+                      <div className="bg-gray-50 p-6 rounded-lg space-y-4">
+                        <h4 className="text-lg font-bold text-secondary">Book Your Session</h4>
+                        <div>
+                          <label className="block text-sm font-medium text-secondary mb-2">
+                            Select Date
+                          </label>
+                          <input
+                            type="date"
+                            value={bookingDate}
+                            onChange={(e) => setBookingDate(e.target.value)}
+                            min={new Date().toISOString().split('T')[0]}
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-secondary mb-2">
+                            Select Time
+                          </label>
+                          <input
+                            type="time"
+                            value={bookingTime}
+                            onChange={(e) => setBookingTime(e.target.value)}
+                            className="w-full px-4 py-2 border-2 border-gray-300 rounded-lg focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                        <div className="flex space-x-3">
+                          <button
+                            onClick={handleBookSession}
+                            disabled={loading || !bookingDate || !bookingTime}
+                            className="flex-1 bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {loading ? 'Booking...' : 'Confirm Booking'}
+                          </button>
+                          <button
+                            onClick={() => setShowBookingModal(false)}
+                            className="flex-1 bg-gray-300 hover:bg-gray-400 text-secondary font-bold py-3 px-6 rounded-lg transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="bg-amber bg-opacity-20 p-4 rounded-lg text-center">
+                    <p className="text-darkwood mb-3">Please log in to book a session</p>
+                    <a
+                      href="/login"
+                      className="inline-block bg-primary hover:bg-amber text-white font-bold py-2 px-6 rounded-lg transition-all"
+                    >
+                      Log In
+                    </a>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <button className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-all flex items-center justify-center space-x-2">
                     <FaLinkedin />
