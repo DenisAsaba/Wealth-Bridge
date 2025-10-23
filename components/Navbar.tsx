@@ -3,10 +3,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { FaLeaf, FaGraduationCap, FaChartLine, FaCreditCard, FaUsers, FaTrophy, FaRobot } from 'react-icons/fa';
+import { FaLeaf, FaGraduationCap, FaChartLine, FaCreditCard, FaUsers, FaTrophy, FaRobot, FaSignInAlt, FaSignOutAlt, FaUserCircle } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Navbar = () => {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
 
   const navItems = [
     { href: '/', label: 'Home', icon: FaLeaf },
@@ -48,6 +50,42 @@ const Navbar = () => {
                 </Link>
               );
             })}
+          </div>
+
+          {/* Auth Buttons */}
+          <div className="hidden md:flex items-center space-x-4">
+            {user ? (
+              <>
+                <div className="flex items-center space-x-2 text-accent">
+                  <FaUserCircle className="text-2xl" />
+                  <span className="text-sm">{user.displayName}</span>
+                </div>
+                <button
+                  onClick={() => logout()}
+                  className="flex items-center space-x-2 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-all"
+                >
+                  <FaSignOutAlt />
+                  <span className="text-sm font-medium">Logout</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="flex items-center space-x-2 text-accent hover:text-white px-4 py-2 rounded-lg transition-all"
+                >
+                  <FaSignInAlt />
+                  <span className="text-sm font-medium">Login</span>
+                </Link>
+                <Link
+                  href="/signup"
+                  className="flex items-center space-x-2 bg-primary hover:bg-amber text-white px-4 py-2 rounded-lg transition-all"
+                >
+                  <FaUserCircle />
+                  <span className="text-sm font-medium">Sign Up</span>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import FallingLeaves from "@/components/FallingLeaves";
+import { AuthProvider } from "@/contexts/AuthContext";
+import ClientLayout from "@/components/ClientLayout";
 
 export const metadata: Metadata = {
   title: "WealthBridge - Your Path to Financial Freedom",
@@ -16,11 +18,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <FallingLeaves />
-        <Navbar />
-        <main className="relative z-10">
-          {children}
-        </main>
+        <AuthProvider>
+          <ClientLayout>
+            <FallingLeaves />
+            <Navbar />
+            <main className="relative z-10">
+              {children}
+            </main>
+          </ClientLayout>
+        </AuthProvider>
       </body>
     </html>
   );
