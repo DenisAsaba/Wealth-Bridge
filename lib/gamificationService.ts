@@ -11,7 +11,7 @@ import {
   limit,
   getDocs
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirestoreDb } from '@/lib/firebase';
 
 export interface Achievement {
   id: number;
@@ -34,7 +34,8 @@ export interface UserStats {
 // Get user stats
 export const getUserStats = async (userId: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
@@ -50,7 +51,8 @@ export const getUserStats = async (userId: string) => {
 // Add points to user
 export const addPoints = async (userId: string, pointsToAdd: number) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     const userDoc = await getDoc(userRef);
     
     if (userDoc.exists()) {
@@ -81,7 +83,8 @@ export const unlockAchievement = async (
   points: number
 ) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     const userDoc = await getDoc(userRef);
     
     if (userDoc.exists()) {
@@ -119,7 +122,8 @@ export const unlockAchievement = async (
 // Update streak
 export const updateStreak = async (userId: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     const userDoc = await getDoc(userRef);
     
     if (userDoc.exists()) {
@@ -162,7 +166,8 @@ export const updateStreak = async (userId: string) => {
 // Update tree growth
 export const updateTreeGrowth = async (userId: string, growth: number) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     
     await updateDoc(userRef, {
       treeGrowth: growth,
@@ -179,7 +184,8 @@ export const updateTreeGrowth = async (userId: string, growth: number) => {
 // Get leaderboard
 export const getLeaderboard = async (limitCount: number = 10) => {
   try {
-    const usersRef = collection(db, 'users');
+    const database = getFirestoreDb();
+    const usersRef = collection(database, 'users');
     const q = query(usersRef, orderBy('points', 'desc'), limit(limitCount));
     const querySnapshot = await getDocs(q);
     

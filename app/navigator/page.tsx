@@ -217,7 +217,7 @@ export default function NavigatorPage() {
               className="bg-gradient-to-br from-primary to-amber rounded-2xl p-6 shadow-xl text-white text-center"
             >
               <p className="text-sm italic">
-                "{motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]}"
+                &ldquo;{motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)]}&rdquo;
               </p>
             </motion.div>
           </div>

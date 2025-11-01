@@ -7,7 +7,7 @@ import {
   serverTimestamp,
   arrayUnion 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirestoreDb } from '@/lib/firebase';
 
 export interface LessonProgress {
   id: number;
@@ -33,7 +33,8 @@ export const saveEducationProgress = async (
   lessons: LessonProgress[]
 ) => {
   try {
-    const progressRef = doc(db, 'progress', `${userId}_${moduleId}`);
+    const database = getFirestoreDb();
+    const progressRef = doc(database, 'progress', `${userId}_${moduleId}`);
     const completionRate = (lessons.filter(l => l.completed).length / lessons.length) * 100;
 
     await setDoc(progressRef, {
@@ -55,7 +56,8 @@ export const saveEducationProgress = async (
 // Get user's education progress
 export const getEducationProgress = async (userId: string, moduleId: string) => {
   try {
-    const progressRef = doc(db, 'progress', `${userId}_${moduleId}`);
+    const database = getFirestoreDb();
+    const progressRef = doc(database, 'progress', `${userId}_${moduleId}`);
     const progressDoc = await getDoc(progressRef);
 
     if (progressDoc.exists()) {
@@ -75,7 +77,8 @@ export const saveQuizScore = async (
   score: number
 ) => {
   try {
-    const progressRef = doc(db, 'progress', `${userId}_${moduleId}`);
+    const database = getFirestoreDb();
+    const progressRef = doc(database, 'progress', `${userId}_${moduleId}`);
     
     await updateDoc(progressRef, {
       quizScores: arrayUnion(score),
@@ -92,7 +95,8 @@ export const saveQuizScore = async (
 // Get all user progress
 export const getAllUserProgress = async (userId: string) => {
   try {
-    const progressRef = collection(db, 'progress');
+    const database = getFirestoreDb();
+    const progressRef = collection(database, 'progress');
     // In a real app, you'd use a query here
     return { success: true, data: [] };
   } catch (error) {

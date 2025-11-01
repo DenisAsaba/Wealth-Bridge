@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   arrayUnion 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirestoreDb } from '@/lib/firebase';
 
 export interface ChatMessage {
   id: number;
@@ -24,7 +24,8 @@ export interface ChatHistory {
 // Get chat history
 export const getChatHistory = async (userId: string) => {
   try {
-    const chatRef = doc(db, 'chatMessages', userId);
+    const database = getFirestoreDb();
+    const chatRef = doc(database, 'chatMessages', userId);
     const chatDoc = await getDoc(chatRef);
 
     if (chatDoc.exists()) {
@@ -43,7 +44,8 @@ export const saveMessage = async (
   message: Omit<ChatMessage, 'id' | 'timestamp'>
 ) => {
   try {
-    const chatRef = doc(db, 'chatMessages', userId);
+    const database = getFirestoreDb();
+    const chatRef = doc(database, 'chatMessages', userId);
     const chatDoc = await getDoc(chatRef);
     
     const newMessage = {
@@ -76,7 +78,8 @@ export const saveMessage = async (
 // Clear chat history
 export const clearChatHistory = async (userId: string) => {
   try {
-    const chatRef = doc(db, 'chatMessages', userId);
+    const database = getFirestoreDb();
+    const chatRef = doc(database, 'chatMessages', userId);
     
     await setDoc(chatRef, {
       userId,

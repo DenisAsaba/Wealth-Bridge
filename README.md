@@ -82,12 +82,17 @@ Two comprehensive learning modules:
 
 ### Installation
 
-1. Install dependencies:
+1. Copy environment variables and update them with your Firebase project details:
+```bash
+cp .env.example .env.local
+```
+
+2. Install dependencies:
 ```bash
 npm install
 ```
 
-2. Run the development server:
+3. Run the development server:
 ```bash
 npm run dev
 ```
@@ -100,6 +105,8 @@ npm run dev
 npm run build
 npm start
 ```
+
+> **Tip:** If Firebase credentials are not provided, the app now falls back to a local "demo mode" that stores authentication data in `localStorage`. This lets you explore the UI without a backend connection.
 
 ## 📁 Project Structure
 
