@@ -9,7 +9,7 @@ import {
   uploadBytes, 
   getDownloadURL 
 } from 'firebase/storage';
-import { db, storage } from '@/lib/firebase';
+import { getFirestoreDb, getStorageBucket } from '@/lib/firebase';
 
 export interface UserProfile {
   userId: string;
@@ -29,7 +29,8 @@ export interface UserProfile {
 // Get user profile
 export const getUserProfile = async (userId: string) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     const userDoc = await getDoc(userRef);
 
     if (userDoc.exists()) {
@@ -48,7 +49,8 @@ export const updateUserProfile = async (
   updates: Partial<UserProfile>
 ) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     
     await updateDoc(userRef, {
       ...updates,
@@ -68,7 +70,8 @@ export const uploadProfilePhoto = async (
   file: File
 ) => {
   try {
-    const storageRef = ref(storage, `profile-photos/${userId}`);
+    const storageBucket = getStorageBucket();
+    const storageRef = ref(storageBucket, `profile-photos/${userId}`);
     
     // Upload file
     await uploadBytes(storageRef, file);
@@ -77,7 +80,8 @@ export const uploadProfilePhoto = async (
     const photoURL = await getDownloadURL(storageRef);
     
     // Update user profile
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     await updateDoc(userRef, {
       photoURL,
       updatedAt: serverTimestamp(),
@@ -96,7 +100,8 @@ export const updatePreferences = async (
   preferences: UserProfile['preferences']
 ) => {
   try {
-    const userRef = doc(db, 'users', userId);
+    const database = getFirestoreDb();
+    const userRef = doc(database, 'users', userId);
     
     await updateDoc(userRef, {
       preferences,

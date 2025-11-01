@@ -9,7 +9,7 @@ import {
   where,
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirestoreDb } from '@/lib/firebase';
 
 export interface MentorSession {
   id: string;
@@ -36,7 +36,8 @@ export interface MentorData {
 // Get all mentors
 export const getMentors = async () => {
   try {
-    const mentorsRef = collection(db, 'mentors');
+    const database = getFirestoreDb();
+    const mentorsRef = collection(database, 'mentors');
     const mentorsSnapshot = await getDocs(mentorsRef);
     
     const mentors = mentorsSnapshot.docs.map(doc => ({
@@ -60,8 +61,9 @@ export const bookSession = async (
   time: string
 ) => {
   try {
+    const database = getFirestoreDb();
     const sessionId = `${userId}_${mentorId}_${Date.now()}`;
-    const sessionRef = doc(db, 'mentorshipSessions', sessionId);
+    const sessionRef = doc(database, 'mentorshipSessions', sessionId);
 
     const sessionData = {
       id: sessionId,
@@ -77,7 +79,7 @@ export const bookSession = async (
     await setDoc(sessionRef, sessionData);
 
     // Update mentor's session count
-    const mentorRef = doc(db, 'mentors', mentorId);
+    const mentorRef = doc(database, 'mentors', mentorId);
     const mentorDoc = await getDoc(mentorRef);
     
     if (mentorDoc.exists()) {
@@ -97,7 +99,8 @@ export const bookSession = async (
 // Get user's mentorship sessions
 export const getUserSessions = async (userId: string) => {
   try {
-    const sessionsRef = collection(db, 'mentorshipSessions');
+    const database = getFirestoreDb();
+    const sessionsRef = collection(database, 'mentorshipSessions');
     const q = query(sessionsRef, where('userId', '==', userId));
     const sessionsSnapshot = await getDocs(q);
 
@@ -115,7 +118,8 @@ export const getUserSessions = async (userId: string) => {
 // Cancel a session
 export const cancelSession = async (sessionId: string) => {
   try {
-    const sessionRef = doc(db, 'mentorshipSessions', sessionId);
+    const database = getFirestoreDb();
+    const sessionRef = doc(database, 'mentorshipSessions', sessionId);
     
     await updateDoc(sessionRef, {
       status: 'canceled',
@@ -132,7 +136,8 @@ export const cancelSession = async (sessionId: string) => {
 // Mark session as completed
 export const completeSession = async (sessionId: string) => {
   try {
-    const sessionRef = doc(db, 'mentorshipSessions', sessionId);
+    const database = getFirestoreDb();
+    const sessionRef = doc(database, 'mentorshipSessions', sessionId);
     
     await updateDoc(sessionRef, {
       status: 'completed',
@@ -149,8 +154,9 @@ export const completeSession = async (sessionId: string) => {
 // Add or update mentor
 export const addMentor = async (mentorData: Omit<MentorData, 'id'>) => {
   try {
+    const database = getFirestoreDb();
     const mentorId = mentorData.name.toLowerCase().replace(/\s+/g, '-');
-    const mentorRef = doc(db, 'mentors', mentorId);
+    const mentorRef = doc(database, 'mentors', mentorId);
 
     await setDoc(mentorRef, {
       ...mentorData,

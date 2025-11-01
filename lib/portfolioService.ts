@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   arrayUnion 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirestoreDb } from '@/lib/firebase';
 
 export interface Holding {
   symbol: string;
@@ -37,7 +37,8 @@ export interface Portfolio {
 // Initialize portfolio for new user
 export const initializePortfolio = async (userId: string, initialBalance: number = 10000) => {
   try {
-    const portfolioRef = doc(db, 'portfolios', userId);
+    const database = getFirestoreDb();
+    const portfolioRef = doc(database, 'portfolios', userId);
     
     await setDoc(portfolioRef, {
       userId,
@@ -60,7 +61,8 @@ export const initializePortfolio = async (userId: string, initialBalance: number
 // Get user portfolio
 export const getPortfolio = async (userId: string) => {
   try {
-    const portfolioRef = doc(db, 'portfolios', userId);
+    const database = getFirestoreDb();
+    const portfolioRef = doc(database, 'portfolios', userId);
     const portfolioDoc = await getDoc(portfolioRef);
 
     if (portfolioDoc.exists()) {
@@ -86,7 +88,8 @@ export const savePortfolio = async (
   gainLoss: number
 ) => {
   try {
-    const portfolioRef = doc(db, 'portfolios', userId);
+    const database = getFirestoreDb();
+    const portfolioRef = doc(database, 'portfolios', userId);
     
     await updateDoc(portfolioRef, {
       balance,
@@ -109,7 +112,8 @@ export const recordTransaction = async (
   transaction: Omit<Transaction, 'id' | 'timestamp'>
 ) => {
   try {
-    const portfolioRef = doc(db, 'portfolios', userId);
+    const database = getFirestoreDb();
+    const portfolioRef = doc(database, 'portfolios', userId);
     
     const transactionWithMetadata = {
       ...transaction,
@@ -139,6 +143,7 @@ export const buyStock = async (
   currentHoldings: Record<string, Holding>
 ) => {
   try {
+    const database = getFirestoreDb();
     const total = shares * price;
     
     if (total > currentBalance) {
@@ -158,7 +163,7 @@ export const buyStock = async (
     }
 
     // Save portfolio
-    const portfolioRef = doc(db, 'portfolios', userId);
+    const portfolioRef = doc(database, 'portfolios', userId);
     await updateDoc(portfolioRef, {
       balance: newBalance,
       holdings: newHoldings,
@@ -191,6 +196,7 @@ export const sellStock = async (
   currentHoldings: Record<string, Holding>
 ) => {
   try {
+    const database = getFirestoreDb();
     const holding = currentHoldings[symbol];
     
     if (!holding || holding.shares < shares) {
@@ -211,7 +217,7 @@ export const sellStock = async (
     }
 
     // Save portfolio
-    const portfolioRef = doc(db, 'portfolios', userId);
+    const portfolioRef = doc(database, 'portfolios', userId);
     await updateDoc(portfolioRef, {
       balance: newBalance,
       holdings: newHoldings,

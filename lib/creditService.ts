@@ -6,7 +6,7 @@ import {
   serverTimestamp,
   arrayUnion 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirestoreDb } from '@/lib/firebase';
 
 export interface CreditScoreHistory {
   score: number;
@@ -44,7 +44,8 @@ export const saveCreditScore = async (
   scoreData: Partial<CreditData>
 ) => {
   try {
-    const creditRef = doc(db, 'creditScores', userId);
+    const database = getFirestoreDb();
+    const creditRef = doc(database, 'creditScores', userId);
     
     await setDoc(creditRef, {
       userId,
@@ -62,7 +63,8 @@ export const saveCreditScore = async (
 // Get user's credit score data
 export const getCreditScore = async (userId: string) => {
   try {
-    const creditRef = doc(db, 'creditScores', userId);
+    const database = getFirestoreDb();
+    const creditRef = doc(database, 'creditScores', userId);
     const creditDoc = await getDoc(creditRef);
 
     if (creditDoc.exists()) {
@@ -81,7 +83,8 @@ export const updateCreditScore = async (
   newScore: number
 ) => {
   try {
-    const creditRef = doc(db, 'creditScores', userId);
+    const database = getFirestoreDb();
+    const creditRef = doc(database, 'creditScores', userId);
     const creditDoc = await getDoc(creditRef);
     
     let previousScore = 650; // default
@@ -117,7 +120,8 @@ export const completeTask = async (
   taskId: number
 ) => {
   try {
-    const creditRef = doc(db, 'creditScores', userId);
+    const database = getFirestoreDb();
+    const creditRef = doc(database, 'creditScores', userId);
     const creditDoc = await getDoc(creditRef);
     
     if (creditDoc.exists()) {
