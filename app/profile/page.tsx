@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { FaUser, FaEnvelope, FaMapMarkerAlt, FaCamera, FaSave, FaBell, FaMoon } from 'react-icons/fa';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -231,7 +232,7 @@ export default function ProfilePage() {
             <div className="relative">
               <div className="w-24 h-24 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center overflow-hidden">
                 {photoURL ? (
-                  <img src={photoURL} alt="Profile" className="w-full h-full object-cover" />
+                  <Image src={photoURL} alt="Profile" width={96} height={96} className="w-full h-full object-cover" />
                 ) : (
                   <FaUser className="text-4xl text-white" />
                 )}
